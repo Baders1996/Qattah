@@ -1,7 +1,5 @@
 package com.example.bader.qattah;
 
-import com.example.bader.qattah.R;
-
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -17,13 +15,19 @@ import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.Toast;
 
+import com.firebase.geofire.GeoFire;
+import com.firebase.geofire.GeoLocation;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -34,56 +38,119 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
+public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMapLongClickListener {
 
     private GoogleMap mMap;
+    Marker pickUpLocation;
+    Marker dropOffLocation;
+    Marker currentLocation;
+    LatLng p, d;
+
+    GeoFire pickUP, dropOff;
 
     LocationManager locationManager;
     LocationListener locationListener;
-    DatabaseReference ref;
-    FirebaseAuth auth;
-    FirebaseUser user;
 
     Button callQattaButton;
     boolean requestActive = false;
+    Location pickupLocation, dropoffLocation;
+    
+    //Database Things
+    DatabaseReference ref;
+    DatabaseReference refPickUp;
+    DatabaseReference refDropOff;
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_maps);
-        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
-        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                .findFragmentById(R.id.map);
-        mapFragment.getMapAsync(this);
-        //Instantiate button
-        callQattaButton = (Button) findViewById(R.id.callQattaButton);
-        user = FirebaseAuth.getInstance().getCurrentUser();
-        auth = FirebaseAuth.getInstance();
+    FirebaseAuth auth;
+    String key;
+    String passengerName;
+
+    //Radio Buttons for picking pickup and dropoff location
+    private RadioGroup radioLocationGroup;
+    private RadioButton radioLocationButton;
+
+    public void addListenerOnButton() {
+
+        radioLocationGroup = (RadioGroup) findViewById(R.id.radioLocation);
     }
 
     public void callQatta(View view) {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            /*//Updating the location, then placing it in a variable
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
-            Location lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+            Location lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);*/
 
-            if (lastKnownLocation != null) {
-                //Database stuff
-                ref = FirebaseDatabase.getInstance().getReference("RideRecord");
-                String key = ref.push().getKey();
-
-                ref.child(key).child("Longitude").setValue(lastKnownLocation.getLongitude());
-                ref.child(key).child("Latitude").setValue(lastKnownLocation.getLatitude());
-                ref.child(key).child("UserID").setValue(auth.getUid());
-                // Read from the database
-
-
-                //Button was pressed, change its label now
-                //callQattaButton.setText("Cancel Qatta");
-                //requestActive = true;
-                //still need to prepare for cancel-call-cancel combos
-
+            if (requestActive) {
+                //Remove the request
+                ref.child(key).removeValue();
+                refPickUp.child(auth.getUid()).removeValue();
+                refDropOff.child(auth.getUid()).removeValue();
+                callQattaButton.setText("Call Qatta");
+                requestActive = false;
+                Toast.makeText(this, "Request Cancelled", Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(this, "Could not find location. Please try again later.", Toast.LENGTH_SHORT).show();
+                if (p != null && d != null) {
+
+                    ref = FirebaseDatabase.getInstance().getReference("RideRecord");
+                    refPickUp = FirebaseDatabase.getInstance().getReference("PickUp");
+                    refDropOff = FirebaseDatabase.getInstance().getReference("DropOff");
+
+                    pickUP = new GeoFire(refPickUp);
+                    dropOff = new GeoFire(refDropOff);
+                    key = auth.getUid();
+
+                    //Enter something to get the current user's name from instance (send it over or something), then write it into the database along with the rest of the data as a rideRecord
+                    ref.child(key).child("PickUpLongitude").setValue(p.longitude);
+                    ref.child(key).child("PickUpLatitude").setValue(p.latitude);
+                    ref.child(key).child("DropOffLongitude").setValue(d.longitude);
+                    ref.child(key).child("DropOffLatitude").setValue(d.latitude);
+                    ref.child(key).child("Active").setValue(true);//?This will be to differentiate finished requests from active ones
+
+                    FirebaseDatabase database = FirebaseDatabase.getInstance();
+                    DatabaseReference myRef = database.getReference().child("Passenger").child(auth.getUid()).child("Username");
+
+                    myRef.addValueEventListener(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(DataSnapshot dataSnapshot) {
+                            passengerName = dataSnapshot.getValue().toString();
+                            ref.child(key).child("PassengerName").setValue(passengerName);
+                        }
+
+                        @Override
+                        public void onCancelled(DatabaseError databaseError) {
+
+                        }
+                    });
+
+                    pickUP.setLocation(auth.getUid(), new GeoLocation(p.latitude, p.longitude), new GeoFire.CompletionListener() {
+                        @Override
+                        public void onComplete(String key, DatabaseError error) {
+                            if (error != null) {
+                                System.err.println("There was an error saving the location to GeoFire: " + error);
+                            } else {
+                                System.out.println("Location saved on server successfully!");
+                            }
+                        }
+                    });
+
+                    dropOff.setLocation(auth.getUid(), new GeoLocation(d.latitude, d.longitude), new GeoFire.CompletionListener() {
+                        @Override
+                        public void onComplete(String key, DatabaseError error) {
+                            if (error != null) {
+                                System.err.println("There was an error saving the location to GeoFire: " + error);
+                            } else {
+                                System.out.println("Location saved on server successfully!");
+                            }
+                        }
+                    });
+
+                    //Button was pressed, change its label now
+                    callQattaButton.setText("Cancel Qatta");
+                    requestActive = true;
+                    Toast.makeText(this, "Request Placed", Toast.LENGTH_SHORT).show();
+
+                } else {
+                    Toast.makeText(this, "Could not find location. Please try again later.", Toast.LENGTH_SHORT).show();
+                }
             }
         }
     }
@@ -110,17 +177,35 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public void updateMap(Location location, boolean flag) {
         LatLng userLocation = new LatLng(location.getLatitude(), location.getLongitude());
 
-        mMap.clear();
         if (flag) {
             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLocation, 15));
         }
-        mMap.addMarker(new MarkerOptions().position(userLocation).title("Your Location"));
+        if (currentLocation != null)
+            currentLocation.remove();
+        currentLocation = mMap.addMarker(new MarkerOptions().position(userLocation).title("Dropoff").icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)));
+    }
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_maps);
+        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
+        mapFragment.getMapAsync(this);
+        //Instantiate button
+        callQattaButton = (Button) findViewById(R.id.callQattaButton);
+
+        //Database stuff
+        auth = FirebaseAuth.getInstance();
+        //For the radio buttons
+        addListenerOnButton();
     }
 
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
+        mMap.setOnMapLongClickListener(this);
 
         //Set up location
         locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
@@ -152,16 +237,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         //Do we need to ask user for location permission?
         if (Build.VERSION.SDK_INT < 23) {
             //No
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                // TODO: Consider calling
-                //    ActivityCompat#requestPermissions
-                // here to request the missing permissions, and then overriding
-                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                //                                          int[] grantResults)
-                // to handle the case where the user grants the permission. See the documentation
-                // for ActivityCompat#requestPermissions for more details.
-                return;
-            }
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
         } else{
             //Yes
@@ -181,5 +256,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             }
         }
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
+    }
+
+    @Override
+    public void onMapLongClick(LatLng latLng) {
+        if (((RadioButton)findViewById(radioLocationGroup.getCheckedRadioButtonId())).getText().equals("Set pick-up location")) {
+            if(pickUpLocation!=null)
+                pickUpLocation.remove();
+            p = latLng;
+            pickUpLocation = mMap.addMarker(new MarkerOptions().position(latLng).title("Pickup").icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
+        }
+        else{
+            if(dropOffLocation!=null)
+                dropOffLocation.remove();
+            d = latLng;
+            dropOffLocation = mMap.addMarker(new MarkerOptions().position(latLng).title("Dropoff").icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+        }
     }
 }
