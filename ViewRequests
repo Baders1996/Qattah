@@ -1,8 +1,8 @@
 package com.example.bader.qattah;
 
-import android.*;
 import android.Manifest;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
@@ -13,55 +13,164 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
+import com.firebase.geofire.GeoFire;
+import com.firebase.geofire.GeoLocation;
+import com.firebase.geofire.GeoQuery;
+import com.firebase.geofire.GeoQueryEventListener;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
 import java.util.ArrayList;
+import java.util.Collections;
 
 public class ViewRequestsActivity extends AppCompatActivity {
 
     LocationManager locationManager;
     LocationListener locationListener;
+    static Location lastKnownLocation;
 
     //?String passengerKey = getIntent().getStringExtra("DriverKey");
     ListView requestListView;
-    ArrayList<String> requests = new ArrayList<String>();
+    ArrayList<Request> mapRequests = new ArrayList<Request>();
+    ArrayList<Request> listedRequests = new ArrayList<Request>();
+    ArrayList<String> requestDistances = new ArrayList<String>();
     ArrayAdapter arrayAdapter;
+    boolean changeOccured = false;
 
     //Database Things
-    DatabaseReference ref;
     FirebaseAuth auth;
     FirebaseUser user;
     String key;
+    String keyAuht;
+
+    //GeoQuery
+    GeoQuery geoQuery;
+
+    //Geofire instantiation
+    DatabaseReference ref = FirebaseDatabase.getInstance().getReference("PickUp");
+    GeoFire geoFire = new GeoFire(ref);
+    static final double SEARCH_RADIUS = 5.0;
+
+    public void addTheGeoQueryListener(){
+        //GeoQuery Events
+        geoQuery.addGeoQueryEventListener(new GeoQueryEventListener() {
+            @Override
+            public void onKeyEntered(String key, GeoLocation location) {
+                Location l = new Location("");
+                l.setLatitude(location.latitude); l.setLongitude(location.longitude);
+                Request request = new Request(location, key, (double)((Math.round((double)(ViewRequestsActivity.lastKnownLocation.distanceTo(l))*10)))/10);
+                if(!mapRequests.contains(request)) {
+                    mapRequests.add(request);
+
+                    Collections.sort(mapRequests);
+                    if (mapRequests.size() > 10)
+                        mapRequests.remove(10);
+
+                    changeOccured = true;
+                }
+            }
+
+            @Override
+            public void onKeyExited(String key) {
+                for(int i = 0; i < mapRequests.size(); i++){
+                    if(mapRequests.get(i).key.equals(key)) {
+                        mapRequests.remove(i);
+                        break;
+                    }
+                }
+                changeOccured = true;
+            }
+
+            @Override
+            public void onKeyMoved(String key, GeoLocation location) {
+                System.out.println(String.format("Key %s moved within the search area to [%f,%f]", key, location.latitude, location.longitude));
+            }
+
+            @Override
+            public void onGeoQueryReady() {
+                System.out.println("All initial data has been loaded and events have been fired!");
+            }
+
+            @Override
+            public void onGeoQueryError(DatabaseError error) {
+                System.err.println("There was an error with this query: " + error);
+            }
+        });
+    }
 
     public void updateListView(Location location) {
         if (location != null) {
 
-            requests.clear();
-            arrayAdapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, requests);
-            requestListView.setAdapter(arrayAdapter);
+            //Updating the location, then placing it in a variable
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
+                lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
 
-            //?Need to get all the RideRecords that have Active==true
-            //?Sort them in the "requests" ArrayList based on their distance from "location"
-            //?Display them in the ListView
+                geoQuery.setCenter(new GeoLocation(lastKnownLocation.getLatitude(), lastKnownLocation.getLongitude()));
 
+                /*//GeoQuery Events
+                addTheGeoQueryListener();
+                */
+                //Refreshing the listed requests list
+                if(changeOccured) {
+                    listedRequests.clear();
+                    listedRequests.addAll(mapRequests);
+                    requestDistances.clear();
+
+                    arrayAdapter.notifyDataSetChanged();
+
+                    for (int i = 0; i < listedRequests.size(); i++) {
+                        requestDistances.add(listedRequests.get(i).distance + " Kilometers");
+                    }
+                    //ArrayAdapter update
+                    arrayAdapter.notifyDataSetChanged();
+                    changeOccured = false;
+                    requestListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                        @Override
+                        public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                            keyAuht = listedRequests.get(i).key;
+                            startActivity(new Intent(ViewRequestsActivity.this, MapsDActivity.class));
+                        }
+                    });
+                }
+                else if(requestDistances.size()>1 && requestDistances.contains("No Requests within 5 kilometers found")){
+                    requestDistances.remove("No Requests within 5 kilometers found");
+
+                    //ArrayAdapter update
+                    arrayAdapter.notifyDataSetChanged();
+                }
+                if(mapRequests.isEmpty()){
+                    requestDistances.add("No Requests within 5 kilometers found");
+
+                    //ArrayAdapter update
+                    arrayAdapter.notifyDataSetChanged();
+                }
+
+            }
         }
+    }
+
+    ViewRequestsActivity(){
+        String keyAuht1 = this.keyAuht;
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
-        if (requestCode == 1) {
+        if(requestCode == 1){
 
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            if(grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED){
                 //Permission was granted by user
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                if(ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
 
                     locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
 
@@ -78,17 +187,18 @@ public class ViewRequestsActivity extends AppCompatActivity {
         setContentView(R.layout.activity_view_requests);
         setTitle("Nearby Requests");
 
-        //requestListView = (ListView) findViewById(R.id.requestListView);
-        requests.add("Test");
-        arrayAdapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, requests);
+        requestListView = (ListView) findViewById(R.id.requestListView);
+        arrayAdapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, requestDistances);
+        requestDistances.add("Getting Nearby Requests...");
         requestListView.setAdapter(arrayAdapter);
+
 
         //Database stuff
         user = FirebaseAuth.getInstance().getCurrentUser();
         auth = FirebaseAuth.getInstance();
         ref = FirebaseDatabase.getInstance().getReference("RideRecord");
         key = ref.push().getKey();
-
+        ref.keepSynced(true);
 
         //Set up location
         locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
@@ -96,7 +206,8 @@ public class ViewRequestsActivity extends AppCompatActivity {
         locationListener = new LocationListener() {
             @Override
             public void onLocationChanged(Location location) {
-
+                geoQuery.setCenter(new GeoLocation(location.getLatitude(), location.getLongitude()));
+                geoQuery.setRadius(SEARCH_RADIUS);
                 updateListView(location);
 
             }
@@ -120,17 +231,11 @@ public class ViewRequestsActivity extends AppCompatActivity {
         //Do we need to ask user for location permission?
         if (Build.VERSION.SDK_INT < 23) {
             //No
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                // TODO: Consider calling
-                //    ActivityCompat#requestPermissions
-                // here to request the missing permissions, and then overriding
-                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                //                                          int[] grantResults)
-                // to handle the case where the user grants the permission. See the documentation
-                // for ActivityCompat#requestPermissions for more details.
-                return;
-            }
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
+            Location lastKnownlocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+            geoQuery = geoFire.queryAtLocation(new GeoLocation(lastKnownLocation.getLatitude(), lastKnownLocation.getLongitude()), SEARCH_RADIUS);
+            addTheGeoQueryListener();
+
         } else{
             //Yes
             //Do we already have permission?
@@ -144,8 +249,11 @@ public class ViewRequestsActivity extends AppCompatActivity {
 
                 Location lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
 
-                if(lastKnownLocation != null)
+                if(lastKnownLocation != null) {
+                    geoQuery = geoFire.queryAtLocation(new GeoLocation(lastKnownLocation.getLatitude(), lastKnownLocation.getLongitude()), SEARCH_RADIUS);
+                    addTheGeoQueryListener();
                     updateListView(lastKnownLocation);
+                }
             }
         }
     }
