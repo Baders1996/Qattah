@@ -24,23 +24,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <TextView
-        android:id="@+id/textView2"
-        android:layout_width="120dp"
-        android:layout_height="29dp"
-        android:layout_marginBottom="62dp"
-        android:layout_marginStart="23dp"
-        android:layout_marginTop="42dp"
-        android:text="Total Amount:"
-        android:textAlignment="viewStart"
-        android:textColor="@android:color/black"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        app:layout_constraintBottom_toTopOf="@+id/ratingBar"
-        app:layout_constraintEnd_toStartOf="@+id/textView5"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/textView" />
-
     <RatingBar
         android:id="@+id/ratingBar"
         android:layout_width="246dp"
@@ -48,13 +31,11 @@
         android:layout_marginBottom="204dp"
         android:layout_marginEnd="69dp"
         android:layout_marginStart="69dp"
-        android:layout_marginTop="49dp"
         android:background="@android:color/transparent"
         android:isIndicator="false"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/textView2" />
+        app:layout_constraintStart_toStartOf="parent" />
 
     <Button
         android:id="@+id/button5"
@@ -76,14 +57,17 @@
 
     <TextView
         android:id="@+id/textView5"
-        android:layout_width="178dp"
-        android:layout_height="29dp"
+        android:layout_width="375dp"
+        android:layout_height="80dp"
         android:layout_marginBottom="63dp"
-        android:layout_marginEnd="60dp"
-        android:layout_marginStart="3dp"
+        android:layout_marginEnd="4dp"
         android:layout_marginTop="41dp"
+        android:textAlignment="viewStart"
+        android:textColor="@android:color/black"
+        android:textSize="19sp"
+        android:textStyle="bold"
         app:layout_constraintBottom_toTopOf="@+id/ratingBar"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/textView2"
-        app:layout_constraintTop_toBottomOf="@+id/textView" />
+        app:layout_constraintTop_toBottomOf="@+id/textView"
+        app:layout_constraintVertical_bias="0.0" />
 </android.support.constraint.ConstraintLayout>
