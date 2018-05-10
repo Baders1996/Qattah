@@ -4,6 +4,8 @@ import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -13,6 +15,7 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -23,13 +26,17 @@ import com.firebase.geofire.GeoLocation;
 import com.firebase.geofire.GeoQuery;
 import com.firebase.geofire.GeoQueryEventListener;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
 
 public class ViewRequestsActivity extends AppCompatActivity {
 
@@ -37,7 +44,6 @@ public class ViewRequestsActivity extends AppCompatActivity {
     LocationListener locationListener;
     static Location lastKnownLocation;
 
-    //?String passengerKey = getIntent().getStringExtra("DriverKey");
     ListView requestListView;
     ArrayList<Request> mapRequests = new ArrayList<Request>();
     ArrayList<Request> listedRequests = new ArrayList<Request>();
@@ -47,17 +53,21 @@ public class ViewRequestsActivity extends AppCompatActivity {
 
     //Database Things
     FirebaseAuth auth;
-    FirebaseUser user;
-    String key;
-    String keyAuht;
+    static String key;
 
     //GeoQuery
     GeoQuery geoQuery;
 
     //Geofire instantiation
-    DatabaseReference ref = FirebaseDatabase.getInstance().getReference("PickUp");
+    DatabaseReference ref = FirebaseDatabase.getInstance().getReference("Pick Up");
     GeoFire geoFire = new GeoFire(ref);
-    static final double SEARCH_RADIUS = 5.0;
+    static final double SEARCH_RADIUS = 2;  //0.05
+
+    double pickupLatitude;
+    double pickupLongitude;
+    double dropoffLatitude;
+    double dropoffLongitude;
+
 
     public void addTheGeoQueryListener(){
         //GeoQuery Events
@@ -66,7 +76,20 @@ public class ViewRequestsActivity extends AppCompatActivity {
             public void onKeyEntered(String key, GeoLocation location) {
                 Location l = new Location("");
                 l.setLatitude(location.latitude); l.setLongitude(location.longitude);
-                Request request = new Request(location, key, (double)((Math.round((double)(ViewRequestsActivity.lastKnownLocation.distanceTo(l))*10)))/10);
+                Geocoder geocoder;
+                List<Address> addresses = null;
+                geocoder = new Geocoder(ViewRequestsActivity.this, Locale.getDefault());
+                try {
+                    addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                String pickupAddress = addresses.get(0).getAddressLine(0);
+
+                geocoder = new Geocoder(ViewRequestsActivity.this, Locale.getDefault());
+
+
+                Request request = new Request(location, key, (double)((Math.round((double)(ViewRequestsActivity.lastKnownLocation.distanceTo(l))*10)))/10, pickupAddress);
                 if(!mapRequests.contains(request)) {
                     mapRequests.add(request);
 
@@ -110,9 +133,8 @@ public class ViewRequestsActivity extends AppCompatActivity {
         if (location != null) {
 
             //Updating the location, then placing it in a variable
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
-                lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+            if (true) {
+                lastKnownLocation = location;
 
                 geoQuery.setCenter(new GeoLocation(lastKnownLocation.getLatitude(), lastKnownLocation.getLongitude()));
 
@@ -123,12 +145,11 @@ public class ViewRequestsActivity extends AppCompatActivity {
                 if(changeOccured) {
                     listedRequests.clear();
                     listedRequests.addAll(mapRequests);
+
                     requestDistances.clear();
 
-                    arrayAdapter.notifyDataSetChanged();
-
                     for (int i = 0; i < listedRequests.size(); i++) {
-                        requestDistances.add(listedRequests.get(i).distance + " Kilometers");
+                        requestDistances.add("Pick Up Address:\n" + listedRequests.get(i).pickAddress + "\n\n");
                     }
                     //ArrayAdapter update
                     arrayAdapter.notifyDataSetChanged();
@@ -136,8 +157,32 @@ public class ViewRequestsActivity extends AppCompatActivity {
                     requestListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
                         @Override
                         public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                            keyAuht = listedRequests.get(i).key;
-                            startActivity(new Intent(ViewRequestsActivity.this, MapsDActivity.class));
+                            key = listedRequests.get(i).key;
+
+                            Log.i("He says key, I say bull", key);
+
+                            Intent intent = new Intent(ViewRequestsActivity.this, MapsDActivity.class);
+                            intent.putExtra("key", key);
+                            intent.putExtra("key", key);
+
+                            Log.i("pickup: ", pickupLatitude + "," + pickupLongitude);
+                            Log.i("dropoff: ", dropoffLatitude + "," + dropoffLongitude);
+
+                            FirebaseDatabase database5 = FirebaseDatabase.getInstance();
+                            DatabaseReference myRef5 = database5.getReference().child("Driver").child(auth.getUid()).child("Longitude");
+                            myRef5.setValue(lastKnownLocation.getLongitude());
+
+                            FirebaseDatabase database6 = FirebaseDatabase.getInstance();
+                            DatabaseReference myRef6 = database6.getReference().child("Driver").child(auth.getUid()).child("Latitude");
+                            myRef6.setValue(lastKnownLocation.getLatitude());
+
+                            FirebaseDatabase database7 = FirebaseDatabase.getInstance();
+                            DatabaseReference myRef7 = database7.getReference().child("Active Ride Record").child(key).child("Driver ID");
+                            myRef7.setValue(auth.getUid());
+
+
+                            FirebaseDatabase.getInstance().getReference("PickUp").child(key).removeValue();
+                            startActivity(intent);
                         }
                     });
                 }
@@ -159,7 +204,7 @@ public class ViewRequestsActivity extends AppCompatActivity {
     }
 
     ViewRequestsActivity(){
-        String keyAuht1 = this.keyAuht;
+        String keyAuht = key;
     }
 
     @Override
@@ -174,7 +219,7 @@ public class ViewRequestsActivity extends AppCompatActivity {
 
                     locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
 
-                    Location lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                    lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
                     updateListView(lastKnownLocation);
                 }
             }
@@ -194,9 +239,8 @@ public class ViewRequestsActivity extends AppCompatActivity {
 
 
         //Database stuff
-        user = FirebaseAuth.getInstance().getCurrentUser();
         auth = FirebaseAuth.getInstance();
-        ref = FirebaseDatabase.getInstance().getReference("RideRecord");
+        ref = FirebaseDatabase.getInstance().getReference("Active Ride Record");
         key = ref.push().getKey();
         ref.keepSynced(true);
 
@@ -206,8 +250,6 @@ public class ViewRequestsActivity extends AppCompatActivity {
         locationListener = new LocationListener() {
             @Override
             public void onLocationChanged(Location location) {
-                geoQuery.setCenter(new GeoLocation(location.getLatitude(), location.getLongitude()));
-                geoQuery.setRadius(SEARCH_RADIUS);
                 updateListView(location);
 
             }
@@ -232,7 +274,7 @@ public class ViewRequestsActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT < 23) {
             //No
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
-            Location lastKnownlocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+            lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
             geoQuery = geoFire.queryAtLocation(new GeoLocation(lastKnownLocation.getLatitude(), lastKnownLocation.getLongitude()), SEARCH_RADIUS);
             addTheGeoQueryListener();
 
@@ -247,7 +289,7 @@ public class ViewRequestsActivity extends AppCompatActivity {
                 //Yes
                 locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
 
-                Location lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
 
                 if(lastKnownLocation != null) {
                     geoQuery = geoFire.queryAtLocation(new GeoLocation(lastKnownLocation.getLatitude(), lastKnownLocation.getLongitude()), SEARCH_RADIUS);
