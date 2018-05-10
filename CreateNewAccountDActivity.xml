@@ -13,7 +13,7 @@
         android:layout_marginEnd="118dp"
         android:layout_marginStart="20dp"
         android:layout_marginTop="36dp"
-        android:text="+4"
+        android:text="6"
         android:textColor="@android:color/black"
         android:textSize="18sp"
         app:layout_constraintBottom_toTopOf="@+id/button"
