@@ -30,14 +30,14 @@
             tools:layout_editor_absoluteY="16dp" />
 
         <ImageButton
-            android:id="@+id/RequestRide"
+            android:id="@+id/CheckRequest"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignStart="@+id/MangeAccount"
             android:layout_below="@+id/textView19"
             android:layout_marginTop="72dp"
             android:background="@android:color/transparent"
-            android:onClick="RideRequest"
+            android:onClick="CheckRequest"
             app:srcCompat="@mipmap/icar_launcher_foreground"
             tools:layout_editor_absoluteX="35dp"
             tools:layout_editor_absoluteY="96dp" />
@@ -47,7 +47,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentEnd="true"
-            android:layout_alignTop="@+id/RequestRide"
+            android:layout_alignTop="@+id/CheckRequest"
             android:layout_marginEnd="22dp"
             android:background="@android:color/transparent"
             android:onClick="RideHistory"
@@ -85,8 +85,8 @@
             android:id="@+id/textView20"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_alignStart="@+id/RequestRide"
-            android:layout_below="@+id/RequestRide"
+            android:layout_alignStart="@+id/CheckRequest"
+            android:layout_below="@+id/CheckRequest"
             android:text="Check for requests"
             android:textAlignment="center"
             android:textColor="@android:color/black"
