@@ -42,13 +42,13 @@ public class CreateNewAccountDActivity extends AppCompatActivity implements View
         aSwitch = findViewById(R.id.switch2);
         NSwitch = findViewById(R.id.switch4);
         progressDialog = new ProgressDialog(this);
-        db = FirebaseDatabase.getInstance().getReference("Diver");
+        db = FirebaseDatabase.getInstance().getReference("Driver");
     }
 
     public void Signup(){
         String text1 = username.getText().toString().trim();
-        String text2 = email.getText().toString().trim();
-        String text3 = password.getText().toString();
+        final String text2 = email.getText().toString().trim();
+        final String text3 = password.getText().toString();
         String text33 = rePassword.getText().toString().trim();
         String text4 = phonenum.getText().toString().trim();
         final boolean SwitchState = aSwitch.isChecked();
@@ -64,39 +64,53 @@ public class CreateNewAccountDActivity extends AppCompatActivity implements View
             auth.createUserWithEmailAndPassword(text2,text3).addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
                 String text1 = username.getText().toString().trim();
                 String text4 = phonenum.getText().toString().trim();
-                String id = db.push().getKey();
                 @Override
                 public void onComplete(@NonNull Task<AuthResult> task) {
                     if (task.isSuccessful()){
                         if (SwitchState == false && SwitchState1 == false) {
-                            db.child(id).child("Username").setValue(text1);
-                            db.child(id).child("Phone Number").setValue(text4);
-                            db.child(id).child("Gender").setValue("Male");
-                            db.child(id).child("Number of passengers").setValue("4");
+                            db.child(auth.getUid()).child("Username").setValue(text1);
+                            db.child(auth.getUid()).child("Phone Number").setValue(text4);
+                            db.child(auth.getUid()).child("Gender").setValue("Male");
+                            db.child(auth.getUid()).child("Number of passengers").setValue(4);
+                            db.child(auth.getUid()).child("E-Mail").setValue(text2);
+                            db.child(auth.getUid()).child("Longitude").setValue("");
+                            db.child(auth.getUid()).child("Latitude").setValue("");
                             startActivity(new Intent(CreateNewAccountDActivity.this, SignIn.class));
                             finish();
                         }else if (SwitchState == true && SwitchState1 == false){
-                            db.child(id).child("Username").setValue(text1);
-                            db.child(id).child("Phone Number").setValue(text4);
-                            db.child(id).child("Gender").setValue("Female");
-                            db.child(id).child("Number of passengers").setValue("4");
+                            db.child(auth.getUid()).child("Username").setValue(text1);
+                            db.child(auth.getUid()).child("Phone Number").setValue(text4);
+                            db.child(auth.getUid()).child("Gender").setValue("Female");
+                            db.child(auth.getUid()).child("Number of passengers").setValue(4);
+                            db.child(auth.getUid()).child("E-Mail").setValue(text2);
+                            db.child(auth.getUid()).child("Longitude").setValue("");
+                            db.child(auth.getUid()).child("Latitude").setValue("");
                             startActivity(new Intent(CreateNewAccountDActivity.this, SignIn.class));
                             finish();
                         } else if (SwitchState == false && SwitchState1 == true){
-                            db.child(id).child("Username").setValue(text1);
-                            db.child(id).child("Phone Number").setValue(text4);
-                            db.child(id).child("Gender").setValue("Male");
-                            db.child(id).child("Number of passengers").setValue("+4");
+                            db.child(auth.getUid()).child("Username").setValue(text1);
+                            db.child(auth.getUid()).child("Phone Number").setValue(text4);
+                            db.child(auth.getUid()).child("Gender").setValue("Male");
+                            db.child(auth.getUid()).child("Number of passengers").setValue(6);
+                            db.child(auth.getUid()).child("E-Mail").setValue(text2);
+                            db.child(auth.getUid()).child("Longitude").setValue("");
+                            db.child(auth.getUid()).child("Latitude").setValue("");
                             startActivity(new Intent(CreateNewAccountDActivity.this, SignIn.class));
                             finish();
                         } else if (SwitchState == true && SwitchState1 == true){
-                            db.child(id).child("Username").setValue(text1);
-                            db.child(id).child("Phone Number").setValue(text4);
-                            db.child(id).child("Gender").setValue("Female");
-                            db.child(id).child("Number of passengers").setValue("+4");
+                            db.child(auth.getUid()).child("Username").setValue(text1);
+                            db.child(auth.getUid()).child("Phone Number").setValue(text4);
+                            db.child(auth.getUid()).child("Gender").setValue("Female");
+                            db.child(auth.getUid()).child("Number of passengers").setValue(6);
+                            db.child(auth.getUid()).child("E-Mail").setValue(text2);
+                            db.child(auth.getUid()).child("Longitude").setValue("");
+                            db.child(auth.getUid()).child("Latitude").setValue("");
                             startActivity(new Intent(CreateNewAccountDActivity.this, SignIn.class));
                             finish();
                         }
+                    }else if(text3.length() < 6) {
+                        progressDialog.cancel();
+                        Toast.makeText(CreateNewAccountDActivity.this, "Password should be at least digits", Toast.LENGTH_LONG).show();
                     }else{
                         progressDialog.cancel();
                         Toast.makeText(CreateNewAccountDActivity.this, "Account already exist", Toast.LENGTH_LONG).show();
