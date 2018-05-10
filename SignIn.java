@@ -43,6 +43,23 @@ public class SignIn extends AppCompatActivity implements View.OnClickListener{
         switch1 = findViewById(R.id.switch1);
     }
 
+    SignIn(){
+
+    }
+
+    public boolean issChecked() throws Exception {
+        try {
+            boolean SwitchState = switch1.isChecked();
+            if (SwitchState == true)
+                return true;
+            else
+                return false;
+        } catch (Exception e){
+            e.getMessage();
+        }
+        return true;
+    }
+
     public void Signin() {
         String text1 = email.getText().toString().trim();
         String text2 = password.getText().toString().trim();
@@ -63,18 +80,29 @@ public class SignIn extends AppCompatActivity implements View.OnClickListener{
         auth.signInWithEmailAndPassword(text1, text2).addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
             @Override
             public void onComplete(@NonNull Task<AuthResult> task) {
+                boolean switchstate = switch1.isChecked();
 
-                if (task.isSuccessful()){
-                        startActivity(new Intent(SignIn.this, WelcomeActivity.class));
-                        progressDialog.cancel();
-                        finish();
-                }else {
-                    progressDialog.cancel();
-                    Toast.makeText(SignIn.this, "E-Mail/Password invalid", Toast.LENGTH_LONG).show();
-                }
+                    if (switchstate == true) {
+                        if (task.isSuccessful()) {
+                            startActivity(new Intent(SignIn.this, WelcomeActivity.class));
+                            progressDialog.cancel();
+                            finish();
+                        } else {
+                            progressDialog.cancel();
+                            Toast.makeText(SignIn.this, "E-Mail/Password invalid", Toast.LENGTH_LONG).show();
+                        }
+                    } else {
+                        if (task.isSuccessful()) {
+                            startActivity(new Intent(SignIn.this, WelcomeDActivity.class));
+                            progressDialog.cancel();
+                            finish();
+                        } else {
+                            progressDialog.cancel();
+                            Toast.makeText(SignIn.this, "E-Mail/Password invalid", Toast.LENGTH_LONG).show();
+                        }
+                    }
             }
         });
-
     }
 
     @Override
