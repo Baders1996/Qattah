@@ -6,9 +6,7 @@ import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
-import android.widget.Button;
 import android.widget.ImageButton;
-import android.widget.Toast;
 
 import com.google.firebase.auth.FirebaseAuth;
 
@@ -25,7 +23,7 @@ public class WelcomeActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_welcome);
 
-        request = findViewById(R.id.RequestRide);
+        request = findViewById(R.id.CheckRequest);
         history = findViewById(R.id.RideHistory);
         mange = findViewById(R.id.MangeAccount);
         Signout = findViewById(R.id.Signout);
